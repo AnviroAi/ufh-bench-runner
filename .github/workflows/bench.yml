@@ -28,6 +28,10 @@ on:
         description: "Backend issue number to post the summary on (empty: none)"
         required: false
         default: ""
+      extra_env:
+        description: "Engine switches on top of switches.env, e.g. LAYOUT_ORDER_PLAN=1 LAYOUT_BUNDLE_LANE=1 (LAYOUT_* only)"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -117,9 +121,14 @@ jobs:
       - name: Run (output kept private)
         env:
           RUN: ${{ matrix.run }}
+          EXTRA_ENV: ${{ inputs.extra_env }}
         run: |
           mkdir -p "out/$RUN"
           set -a; . tools-repo/tools/bench/switches.env; set +a
+          # extra switches: only LAYOUT_NAME=value pairs (letters, digits, _ . - in the value), nothing else is accepted
+          for kv in $EXTRA_ENV; do
+            if [[ "$kv" =~ ^LAYOUT_[A-Z0-9_]+=[A-Za-z0-9_.-]+$ ]]; then export "$kv"; echo "switch: $kv"; else echo "not a switch: $kv"; exit 1; fi
+          done
           # the engine's log names rooms and prints coordinates, and a crash prints source lines: all of it goes to a file
           python tools-repo/tools/bench/run_one.py "$RUN" code "out/$RUN" > "out/$RUN/engine.log" 2>&1 || true
           python tools-repo/tools/bench/one_line.py "$RUN" "out/$RUN/row.json"
